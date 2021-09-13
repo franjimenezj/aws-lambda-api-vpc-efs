@@ -1,0 +1,17 @@
+{
+  "name": "aws-lambda-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "handler.js",
+  "scripts": {
+    "invoke": "sls invoke local -f hello",
+    "deploy": "sls deploy --stage dev --verbose"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "serverless-iam-roles-per-function": "^3.2.0",
+    "serverless-vpc-plugin": "^1.0.4"
+  }
+}

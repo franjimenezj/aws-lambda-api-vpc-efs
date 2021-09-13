@@ -1,0 +1,105 @@
+service: aws-lambda-api-service
+
+plugins:
+    - serverless-iam-roles-per-function
+
+frameworkVersion: '1.83.1'
+
+# defaultAwsProperties:
+#     - Type: AWS::Lambda::Function
+#       Properties:
+#         FileSystemConfigs:
+#           - Arn: 'arn:aws:elasticfilesystem:${self:provider.region}:#{AWS::AccountId}:access-point/${self:custom.efsAccessPoint}'
+#             LocalMountPath: '${self:custom.LocalMountPath}'
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: dev
+  profile: personal
+  region: eu-west-1
+
+custom:
+  stage: ${opt:stage, self:provider.stage}
+  LocalMountPath: '/mnt/efs'
+
+functions:
+  hello:
+    handler: handler.hello
+    iamRoleStatementsName: ${self:service}-hello-${self:custom.stage}
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - ec2:CreateNetworkInterface
+          - ec2:DescribeNetworkInterfaces
+          - ec2:DetachNetworkInterface
+          - ec2:DeleteNetworkInterface
+        Resource: '*'
+    events:
+      - http:
+          method: get
+          path: /helloworld
+
+resources:
+  Resources:
+    VPC:
+      Type: AWS::EC2::VPC
+      Properties:
+        CidrBlock: 10.0.0.0/16
+    Subnet1:
+      Type: AWS::EC2::Subnet
+      Properties:
+        VpcId:
+          Ref: VPC
+        CidrBlock: 10.0.1.0/24
+        AvailabilityZone:
+          Fn::Select:
+            - 0
+            - Fn::GetAZs: ""
+    EfsSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        VpcId: !Ref VPC
+        GroupDescription: "mnt target sg"
+        SecurityGroupIngress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+    FileSystem:
+      Type: AWS::EFS::FileSystem
+      Properties:
+        PerformanceMode: generalPurpose
+    MountTarget1:
+      Type: AWS::EFS::MountTarget
+      Properties:
+        FileSystemId: !Ref FileSystem
+        SubnetId: !Ref Subnet1
+        SecurityGroups:
+          - !Ref EfsSecurityGroup
+
+    EFSAccessPoint:
+      Type: AWS::EFS::AccessPoint
+      Properties:
+        FileSystemId: !Ref FileSystem
+        PosixUser:
+          Uid: "1000"
+          Gid: "1000"
+        RootDirectory:
+          CreationInfo:
+            OwnerGid: "1000"
+            OwnerUid: "1000"
+            Permissions: "0777"
+          Path: /
+  extensions:
+    HelloLambdaFunction:
+        DependsOn:
+          - EFSAccessPoint
+          - EfsSecurityGroup
+          - Subnet1
+          - MountTarget1
+        Properties:
+          FileSystemConfigs:
+              - Arn: !GetAtt EFSAccessPoint.Arn
+                LocalMountPath: '${self:custom.LocalMountPath}'
+          VpcConfig:
+            SecurityGroupIds: [ {"Ref":"EfsSecurityGroup"} ]
+            SubnetIds:  [ {"Ref":"Subnet1"} ]

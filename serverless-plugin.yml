@@ -1,0 +1,114 @@
+service: aws-lambda-api-service
+
+frameworkVersion: '1.83.1'
+
+plugins:
+  - serverless-vpc-plugin
+
+defaultAwsProperties:
+    - Type: AWS::Lambda::Function
+      Properties:
+        FileSystemConfigs:
+          - Arn: 'arn:aws:elasticfilesystem:${self:provider.region}:#{AWS::AccountId}:access-point/${self:custom.efsAccessPoint}'
+            LocalMountPath: '${self:custom.LocalMountPath}'
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: dev
+  profile: personal
+  region: eu-west-1
+  # stackTags:
+  #       Service: Testing Lambda & VPC ${self:custom.stage}
+  # vpc:
+  #   securityGroupIds:
+  #     -  # plugin will add LambdaExecutionSecurityGroup to this list
+  #   subnetIds:
+  #     -  # plugin will add the "Application" subnets to this list
+
+custom:
+  stage: ${opt:stage, self:provider.stage}
+  efsAccessPoint: myEFSAccessPoint
+  LocalMountPath: /mnt/example
+  vpcConfig:
+    # Whether plugin is enabled. Can be used to selectively disable plugin
+    # on certain stages or configurations. Defaults to true.
+    enabled: true
+
+    cidrBlock: '10.0.0.0/16'
+
+    # if createNatGateway is a boolean "true", a NAT Gateway and EIP will be provisioned in each zone
+    # if createNatGateway is a number, that number of NAT Gateways will be provisioned
+    createNatGateway: 2
+
+    # When enabled, the DB subnet will only be accessible from the Application subnet
+    # Both the Public and Application subnets will be accessible from 0.0.0.0/0
+    createNetworkAcl: false
+
+    # Whether to create the DB subnet
+    createDbSubnet: false
+
+    # Whether to enable VPC flow logging to an S3 bucket
+    createFlowLogs: false
+
+    # Whether to create a bastion host
+    createBastionHost: false
+    bastionHostKeyName: MyKey # required if creating a bastion host
+
+    # Whether to create a NAT instance
+    createNatInstance: false
+
+    # Whether to create AWS Systems Manager (SSM) Parameters
+    createParameters: false
+
+    # Optionally specify AZs (defaults to auto-discover all availabile AZs)
+    # zones:
+    #   - eu-west-1a
+
+    # By default, S3 and DynamoDB endpoints will be available within the VPC
+    # see https://docs.aws.amazon.com/vpc/latest/userguide/vpc-endpoints.html
+    # for a list of available service endpoints to provision within the VPC
+    # (varies per region)
+    services:
+      - kms
+      - secretsmanager
+
+    # Optionally specify subnet groups to create. If not provided, subnet groups
+    # for RDS, Redshift, ElasticCache and DAX will be provisioned.
+    # subnetGroups:
+    #   - rds
+
+    # Whether to export stack outputs so it may be consumed by other stacks
+    exportOutputs: false
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - http:
+          method: get
+          path: /helloworld
+
+
+# you can add CloudFormation resource templates here
+#resources:
+#  Resources:
+#    NewResource:
+#      Type: AWS::S3::Bucket
+#      Properties:
+#        BucketName: my-new-bucket
+#  Outputs:
+#     NewOutput:
+#       Description: "Description for the output"
+#       Value: "Some output value"
+
+# resources:
+#   Resources:
+#     hello:
+#       Type: AWS::Lambda::Function
+#       Properties:
+#         Code:
+#           ZipFile: |
+#             var aws = require('aws-sdk')
+#         Role:
+#       FileSystemConfig 
