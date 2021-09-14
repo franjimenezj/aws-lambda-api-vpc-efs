@@ -52,10 +52,14 @@ resources:
         VpcId:
           Ref: VPC
         CidrBlock: 10.0.1.0/24
-        AvailabilityZone:
-          Fn::Select:
-            - 0
-            - Fn::GetAZs: ''
+        AvailabilityZone: 'eu-west-1a'
+    Subnet2:
+      Type: AWS::EC2::Subnet
+      Properties:
+        VpcId:
+          Ref: VPC
+        CidrBlock: 10.0.2.0/24
+        AvailabilityZone: 'eu-west-1b'
     EfsSecurityGroup:
       Type: AWS::EC2::SecurityGroup
       Properties:
@@ -73,6 +77,13 @@ resources:
       Properties:
         FileSystemId: !Ref FileSystem
         SubnetId: !Ref Subnet1
+        SecurityGroups:
+          - !Ref EfsSecurityGroup
+    MountTarget2:
+      Type: AWS::EFS::MountTarget
+      Properties:
+        FileSystemId: !Ref FileSystem
+        SubnetId: !Ref Subnet2
         SecurityGroups:
           - !Ref EfsSecurityGroup
 
@@ -96,10 +107,12 @@ resources:
           - EfsSecurityGroup
           - Subnet1
           - MountTarget1
+          - Subnet2
+          - MountTarget2
         Properties:
           FileSystemConfigs:
               - Arn: !GetAtt EFSAccessPoint.Arn
                 LocalMountPath: '${self:custom.LocalMountPath}'
           VpcConfig:
             SecurityGroupIds: [ {'Ref':'EfsSecurityGroup'} ]
-            SubnetIds:  [ {'Ref':'Subnet1'} ]
+            SubnetIds:  [ {'Ref':'Subnet1'}, {'Ref':'Subnet2'} ]
