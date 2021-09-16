@@ -1,0 +1,75 @@
+Resources:
+    VPC:
+      Type: AWS::EC2::VPC
+      Properties:
+        CidrBlock: 10.0.0.0/16
+    Subnet1:
+      Type: AWS::EC2::Subnet
+      Properties:
+        VpcId:
+          Ref: VPC
+        CidrBlock: 10.0.1.0/24
+        AvailabilityZone: 'eu-west-1a'
+    Subnet2:
+      Type: AWS::EC2::Subnet
+      Properties:
+        VpcId:
+          Ref: VPC
+        CidrBlock: 10.0.2.0/24
+        AvailabilityZone: 'eu-west-1b'
+    EfsSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        VpcId: !Ref VPC
+        GroupDescription: 'mnt target sg'
+        SecurityGroupIngress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+    FileSystem:
+      Type: AWS::EFS::FileSystem
+      Properties:
+        PerformanceMode: generalPurpose
+    MountTarget1:
+      Type: AWS::EFS::MountTarget
+      Properties:
+        FileSystemId: !Ref FileSystem
+        SubnetId: !Ref Subnet1
+        SecurityGroups:
+          - !Ref EfsSecurityGroup
+    MountTarget2:
+      Type: AWS::EFS::MountTarget
+      Properties:
+        FileSystemId: !Ref FileSystem
+        SubnetId: !Ref Subnet2
+        SecurityGroups:
+          - !Ref EfsSecurityGroup
+
+    EFSAccessPoint:
+      Type: AWS::EFS::AccessPoint
+      Properties:
+        FileSystemId: !Ref FileSystem
+        PosixUser:
+          Uid: '1000'
+          Gid: '1000'
+        RootDirectory:
+          CreationInfo:
+            OwnerGid: '1000'
+            OwnerUid: '1000'
+            Permissions: '0777'
+          Path: ${self:custom.accessPointMountPath}
+extensions:
+  HelloLambdaFunction:
+      DependsOn:
+        - EFSAccessPoint
+        - EfsSecurityGroup
+        - Subnet1
+        - MountTarget1
+        - Subnet2
+        - MountTarget2
+      Properties:
+        FileSystemConfigs:
+            - Arn: !GetAtt EFSAccessPoint.Arn
+              LocalMountPath: '${self:custom.localMountPath}'
+        VpcConfig:
+          SecurityGroupIds: [ {'Ref':'EfsSecurityGroup'} ]
+          SubnetIds:  [ {'Ref':'Subnet1'}, {'Ref':'Subnet2'} ]

@@ -1,6 +1,6 @@
 const fs = require("fs").promises;
 
-const TIMESTAMP_FILE_PATH = "/mnt/efs/content";
+const TIMESTAMP_FILE_PATH = "/mnt/transcriber/content";
 
 module.exports.hello = async function (event) {
 
